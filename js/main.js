@@ -7,6 +7,7 @@ var tulaneViz = {
 	tripleStore: null,
 	tripleObject: null,
 	depictionIndex: {},
+	weightCount: {},
 	nodeIndex: [],
 
 	init: function(){
@@ -111,10 +112,11 @@ var tulaneViz = {
 
 		var self = this;
 
-
 		for (var x in self.tripleObject){
 
 			var t = self.tripleObject[x];
+
+
 
 			//look for the people
 			if (t['http://www.w3.org/1999/02/22-rdf-syntax-ns#type']){
@@ -129,16 +131,31 @@ var tulaneViz = {
 
 				if (isPerson){
 
+					if (!self.weightCount[x]){ self.weightCount[x] = 0}
+
+
 					if (t['http://xmlns.com/foaf/0.1/depiction']){
 						for (var d in t['http://xmlns.com/foaf/0.1/depiction']){
-							if (t['http://xmlns.com/foaf/0.1/depiction'][type]['value']){
-								
-								if (self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][type]['value']]){
-									if (self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][type]['value']].indexOf(x) == -1){
-										self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][type]['value']].push(x);
+
+
+							if (t['http://xmlns.com/foaf/0.1/depiction'][d]['value']){
+
+						
+								if (self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][d]['value']]){
+									if (self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][d]['value']].indexOf(x) == -1){
+										self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][d]['value']].push(x);
+
+
+										self.weightCount[x]++;
+										
+
 									}
 								}else{
-									self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][type]['value']] = [x];
+									self.depictionIndex[t['http://xmlns.com/foaf/0.1/depiction'][d]['value']] = [x];
+
+									self.weightCount[x]++;
+
+
 								}
 
 							}
@@ -154,8 +171,11 @@ var tulaneViz = {
 
 
 		}
+
 				
 	},
+
+
 
 	cacheDepectionImages: function(){
 		var self = this;
@@ -163,7 +183,7 @@ var tulaneViz = {
 		for (var d in self.depictionIndex){
 			if (self.depictionIndex[d].length>1){
 				var img = d.split('/id/')[1];
-				console.log(img);
+
 				$('body').append(
 					$("<img>")
 						.attr('src','imgs/'+img+'.jpg')
@@ -222,7 +242,7 @@ var tulaneViz = {
 
 					
 		self.networkForce = d3.layout.force()
- 			.charge(-2500)
+ 			.charge(-3000)
 			.gravity(0.05)				
 			.distance(200)
 			.linkStrength(0.2)
@@ -283,6 +303,8 @@ var tulaneViz = {
 	networkAddData: function(mode){
 
 
+
+
 		this.updateStatus('Processing Data');
 
 
@@ -290,7 +312,6 @@ var tulaneViz = {
 
 
 		self.networkNodes = [];
-
 
 		if (mode == 'group'){
 
@@ -319,12 +340,13 @@ var tulaneViz = {
 							var useId = self.networkNodes.length-1;
 							useId++;
 
-							self.networkNodes.push({id: useId, uri: self.depictionIndex[d][p], title:  self.uri2Name(self.depictionIndex[d][p]), type: "img", type: "person", img: ""});
+							self.networkNodes.push({id: useId, count: self.weightCount[self.depictionIndex[d][p]], uri: self.depictionIndex[d][p], title:  self.uri2Name(self.depictionIndex[d][p]), type: "img", type: "person", img: ""});
 							
 							self.nodeIndex[self.depictionIndex[d][p]] = useId;
 
 							self.networkLinks.push({source: self.networkNodes[ self.nodeIndex[d]     ], target: self.networkNodes[ self.nodeIndex[self.depictionIndex[d][p]]  ]});
 
+							addedPeople.push(self.depictionIndex[d][p]);
 
 						}else{
 
@@ -534,7 +556,8 @@ var tulaneViz = {
 						}
 
 						if (d.type=='person'){
-							var nodeSize = 1;//useSize(d.count) / 6; 
+							var nodeSize = d.count / 4; 
+							if (nodeSize>5){nodeSize=5}
 							return "translate(" + ((nodeSize * 25) *-1) + "," + ((nodeSize * 40) * -1) + ")scale(" + nodeSize + ")";				
 						}
 						if (d.type=='corpname'){
@@ -597,12 +620,22 @@ var tulaneViz = {
 				})
 				.attr("y", function(d){
 
-					if (d.type == "collection" || d.type == "component" || d.type == "person" || d.type == "corpname"){
+					if (d.type == "collection" || d.type == "component"  || d.type == "corpname"){
 						return 30
 					}
+
 					if (d.type == "subject" || d.type == "topic"){
 						return 0
 					}
+
+					if (d.type == 'person'){
+						if (d.count < 5){return 30}
+
+						return  d.count / 4; 
+							
+					}
+
+
 				})
 				.style("stroke", function(d) {
 
@@ -626,7 +659,6 @@ var tulaneViz = {
 				*/
 
 				.text(function(d){ 
-
 
 					return d.title;
 					
@@ -657,7 +689,16 @@ var tulaneViz = {
 							
 
 						}
+						if (d.type == "person"){
 
+							if (d.count < 10){
+								return 10
+							}
+
+							return d.count;
+							
+
+						}
 						return 10;
 
 				}); 
